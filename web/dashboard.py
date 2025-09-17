@@ -531,6 +531,7 @@ class WebDashboard:
             if not self.espionage_tracker or not self.espionage_monitor:
                 return jsonify({"error": "Monitoring system not initialized"}), 503
             try:
+                print("📍 Starting monitoring overview API call...")
                 # Get monitoring status from database
                 with sqlite3.connect(self.espionage_tracker.db_path) as conn:
                     cursor = conn.cursor()
@@ -546,12 +547,17 @@ class WebDashboard:
                         )
                     ''')
                     
-                    cursor.execute('''
-                        SELECT is_running, started_at, last_heartbeat 
-                        FROM monitoring_status 
-                        WHERE id = 1
-                    ''')
-                    status_row = cursor.fetchone()
+                    try:
+                        cursor.execute('''
+                            SELECT is_running, started_at, last_heartbeat 
+                            FROM monitoring_status 
+                            WHERE id = 1
+                        ''')
+                        status_row = cursor.fetchone()
+                        print(f"📍 Status row: {status_row}")
+                    except Exception as e:
+                        print(f"Error getting status row: {e}")
+                        status_row = None
                     
                     if status_row:
                         is_running, started_at, last_heartbeat = status_row
@@ -559,7 +565,8 @@ class WebDashboard:
                         cursor.execute('''
                             SELECT datetime('now') < datetime(?, '+10 minutes')
                         ''', (last_heartbeat,))
-                        heartbeat_recent = cursor.fetchone()[0] if cursor.fetchone() else False
+                        heartbeat_result = cursor.fetchone()
+                        heartbeat_recent = heartbeat_result[0] if heartbeat_result else False
                         monitoring_active = bool(is_running and heartbeat_recent)
                     else:
                         monitoring_active = False
@@ -606,26 +613,34 @@ class WebDashboard:
                     print(f"📊 Database stats: nations={total_nations}, queue={queue_count}, resets={reset_times_found}")
                     
                     # Recent activity
-                    cursor.execute('''
-                        SELECT es.nation_id, n.nation_name, es.espionage_available, es.checked_at
-                        FROM espionage_status es
-                        JOIN nations n ON es.nation_id = n.id
-                        ORDER BY es.checked_at DESC
-                        LIMIT 10
-                    ''')
-                    recent_activity = [dict(zip(['nation_id', 'nation_name', 'espionage_available', 'checked_at'], row))
-                                     for row in cursor.fetchall()]
+                    try:
+                        cursor.execute('''
+                            SELECT es.nation_id, n.nation_name, es.espionage_available, es.checked_at
+                            FROM espionage_status es
+                            JOIN nations n ON es.nation_id = n.id
+                            ORDER BY es.checked_at DESC
+                            LIMIT 10
+                        ''')
+                        recent_activity = [dict(zip(['nation_id', 'nation_name', 'espionage_available', 'checked_at'], row))
+                                         for row in cursor.fetchall()]
+                    except Exception as e:
+                        print(f"Error getting recent activity: {e}")
+                        recent_activity = []
                     
                     # Recent reset times
-                    cursor.execute('''
-                        SELECT rt.nation_id, n.nation_name, rt.reset_time, rt.detection_method
-                        FROM reset_times rt
-                        JOIN nations n ON rt.nation_id = n.id
-                        ORDER BY rt.reset_time DESC
-                        LIMIT 5
-                    ''')
-                    recent_resets = [dict(zip(['nation_id', 'nation_name', 'reset_time', 'detection_method'], row))
-                                   for row in cursor.fetchall()]
+                    try:
+                        cursor.execute('''
+                            SELECT rt.nation_id, n.nation_name, rt.reset_time, rt.detection_method
+                            FROM reset_times rt
+                            JOIN nations n ON rt.nation_id = n.id
+                            ORDER BY rt.reset_time DESC
+                            LIMIT 5
+                        ''')
+                        recent_resets = [dict(zip(['nation_id', 'nation_name', 'reset_time', 'detection_method'], row))
+                                       for row in cursor.fetchall()]
+                    except Exception as e:
+                        print(f"Error getting recent resets: {e}")
+                        recent_resets = []
                 
                 return jsonify({
                     "monitoring_status": {
@@ -650,7 +665,32 @@ class WebDashboard:
                     "reset_times_found": reset_times_found
                 })
             except Exception as e:
-                return jsonify({"error": str(e)}), 500
+                print(f"❌ Error in monitoring overview: {e}")
+                import traceback
+                traceback.print_exc()
+                # Return safe default values instead of failing
+                return jsonify({
+                    "monitoring_status": {
+                        "active": False,
+                        "is_running": False,
+                        "started_at": None,
+                        "last_heartbeat": None
+                    },
+                    "database_stats": {
+                        "total_nations": 0,
+                        "monitoring_queue_count": 0,
+                        "reset_times_found": 0,
+                        "checks_last_24h": 0,
+                        "ready_to_check_now": 0
+                    },
+                    "recent_activity": [],
+                    "recent_reset_times": [],
+                    "monitoring_active": False,
+                    "nations_count": 0,
+                    "ready_to_check": 0,
+                    "reset_times_found": 0,
+                    "error": f"Database error: {str(e)}"
+                })
         
         @self.app.route('/api/monitoring/recent')
         def api_monitoring_recent():
