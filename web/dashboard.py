@@ -176,7 +176,7 @@ class WebDashboard:
                 import asyncio
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(self.espionage_monitor.initial_data_collection())
+                result = loop.run_until_complete(self.espionage_monitor.index_all_nations())
                 loop.close()
                 return jsonify(result)
             except Exception as e:
