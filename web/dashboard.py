@@ -124,6 +124,7 @@ class WebDashboard:
         def monitoring_worker():
             """Background monitoring worker with sequential operations"""
             try:
+                import time  # Import here for thread context
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 
@@ -150,7 +151,9 @@ class WebDashboard:
                 print("⏳ Starting indexing in 5 seconds to avoid conflicts...")
                 time.sleep(5)  # Prevent multiple indexing processes
                 
+                print("🔄 Starting nation indexing...")
                 indexing_result = loop.run_until_complete(self.espionage_monitor.index_all_nations())
+                print(f"📋 Indexing result: {indexing_result}")
                 
                 if indexing_result.get('success'):
                     print(f"✅ Indexing complete: {indexing_result.get('alliance_nations', 0)} alliance nations indexed")
@@ -160,10 +163,15 @@ class WebDashboard:
                     loop.run_until_complete(self.espionage_monitor.start_espionage_monitoring())
                 else:
                     print(f"❌ Indexing failed: {indexing_result.get('error', 'Unknown error')}")
+                    print("🔄 Will retry indexing in 10 minutes...")
+                    # Don't exit, just continue without monitoring for now
                     return
                 
             except Exception as e:
                 print(f"❌ Monitoring worker error: {e}")
+                import traceback
+                traceback.print_exc()
+                
                 # Mark monitoring as stopped
                 try:
                     with sqlite3.connect(self.espionage_tracker.db_path) as conn:
@@ -174,11 +182,11 @@ class WebDashboard:
                             WHERE id = 1
                         ''')
                         conn.commit()
-                except:
-                    pass
+                except Exception as db_error:
+                    print(f"❌ Error updating monitoring status: {db_error}")
                 
                 # Restart monitoring after 5 minutes on error
-                import time
+                print("🔄 Restarting monitoring in 5 minutes due to error...")
                 time.sleep(300)
                 self.start_background_monitoring()
         
