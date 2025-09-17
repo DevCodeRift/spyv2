@@ -54,6 +54,11 @@ class WebDashboard:
             """Monitoring dashboard page"""
             return render_template('dashboard.html')  # Use existing template
         
+        @self.app.route('/nations')
+        def nations_table():
+            """Nations database table page"""
+            return render_template('nations_table.html')
+        
         @self.app.route('/health')
         def health():
             """Health check endpoint for Railway deployment"""

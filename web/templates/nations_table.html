@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nations Database - Politics & War Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .nav {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .nav a {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .nav a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        .nav a.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .controls {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-group label {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 14px;
+        }
+        .btn {
+            background: #7289da;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5865f2;
+        }
+        .btn.secondary {
+            background: #99aab5;
+        }
+        .btn.secondary:hover {
+            background: #7289da;
+        }
+        .stats {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #7289da;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        .table-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: bold;
+            color: #7289da;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-active {
+            background: #43b581;
+            color: white;
+        }
+        .status-inactive {
+            background: #f04747;
+            color: white;
+        }
+        .status-monitoring {
+            background: #faa61a;
+            color: white;
+        }
+        .status-completed {
+            background: #7289da;
+            color: white;
+        }
+        .alliance-name {
+            font-weight: bold;
+            color: #7289da;
+        }
+        .nation-id {
+            font-family: monospace;
+            color: #99aab5;
+            font-size: 12px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #7289da;
+        }
+        .error {
+            background: rgba(240, 71, 71, 0.2);
+            color: #f04747;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #f04747;
+        }
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            table {
+                font-size: 12px;
+            }
+            th, td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Nations Database</h1>
+        <p>Complete overview of all indexed nations and their monitoring status</p>
+    </div>
+
+    <nav class="nav">
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/nations" class="active">Nations Database</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="search">Search Nations</label>
+                <input type="text" id="search" placeholder="Nation name or ID">
+            </div>
+            <div class="control-group">
+                <label for="alliance-filter">Alliance Filter</label>
+                <select id="alliance-filter">
+                    <option value="">All Alliances</option>
+                    <option value="0">No Alliance</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="status-filter">Status Filter</label>
+                <select id="status-filter">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="monitoring">Being Monitored</option>
+                    <option value="completed">Reset Time Found</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="page-size">Results per page</label>
+                <select id="page-size">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+            <button class="btn" onclick="loadNations()">🔍 Search</button>
+            <button class="btn secondary" onclick="resetFilters()">🔄 Reset</button>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="total-nations">-</div>
+                <div class="stat-label">Total Nations</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="alliance-nations">-</div>
+                <div class="stat-label">Alliance Nations</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="monitoring-queue">-</div>
+                <div class="stat-label">In Monitoring Queue</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="reset-times">-</div>
+                <div class="stat-label">Reset Times Found</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nation ID</th>
+                            <th>Nation Name</th>
+                            <th>Alliance</th>
+                            <th>Alliance ID</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                            <th>Monitoring Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nations-table">
+                        <tr>
+                            <td colspan="7" class="loading">
+                                Loading nations data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="pagination" id="pagination">
+            <button class="btn secondary" onclick="previousPage()" id="prev-btn">◀ Previous</button>
+            <span id="page-info">Page 1 of 1</span>
+            <button class="btn secondary" onclick="nextPage()" id="next-btn">Next ▶</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let alliances = new Map();
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadNations();
+            loadAlliances();
+        });
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/database/debug');
+                const data = await response.json();
+                
+                document.getElementById('total-nations').textContent = data.active_nations?.toLocaleString() || '0';
+                document.getElementById('alliance-nations').textContent = data.alliance_nations?.toLocaleString() || '0';
+                document.getElementById('monitoring-queue').textContent = data.monitoring_queue_count?.toLocaleString() || '0';
+                document.getElementById('reset-times').textContent = data.reset_times_found?.toLocaleString() || '0';
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadAlliances() {
+            try {
+                const response = await fetch('/api/database/nations?limit=1000');
+                const data = await response.json();
+                
+                const allianceSet = new Set();
+                data.nations?.forEach(nation => {
+                    if (nation.alliance_id && nation.alliance_id !== '0') {
+                        allianceSet.add(`${nation.alliance_id}|${nation.alliance_name || 'Unknown'}`);
+                    }
+                });
+                
+                const allianceFilter = document.getElementById('alliance-filter');
+                const sorted = Array.from(allianceSet).sort();
+                
+                sorted.forEach(allianceStr => {
+                    const [id, name] = allianceStr.split('|');
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = `${name} (${id})`;
+                    allianceFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading alliances:', error);
+            }
+        }
+
+        async function loadNations() {
+            const tableBody = document.getElementById('nations-table');
+            const pageSize = document.getElementById('page-size').value;
+            const search = document.getElementById('search').value;
+            const allianceFilter = document.getElementById('alliance-filter').value;
+            const statusFilter = document.getElementById('status-filter').value;
+            
+            tableBody.innerHTML = '<tr><td colspan="7" class="loading">Loading nations...</td></tr>';
+            
+            try {
+                let url = `/api/database/nations?limit=${pageSize}&offset=${(currentPage - 1) * pageSize}`;
+                
+                if (allianceFilter) {
+                    url += `&alliance_id=${allianceFilter}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Calculate total pages
+                totalPages = Math.ceil((data.total || data.count || 50) / pageSize);
+                updatePagination();
+                
+                // Clear table
+                tableBody.innerHTML = '';
+                
+                if (!data.nations || data.nations.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #99aab5;">No nations found</td></tr>';
+                    return;
+                }
+                
+                // Filter nations based on search and status
+                let filteredNations = data.nations;
+                
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    filteredNations = filteredNations.filter(nation => 
+                        nation.nation_name.toLowerCase().includes(searchLower) ||
+                        nation.id.toString().includes(search)
+                    );
+                }
+                
+                // Load monitoring status for these nations
+                const monitoringData = await loadMonitoringStatus();
+                
+                filteredNations.forEach(nation => {
+                    const row = document.createElement('tr');
+                    
+                    const isActive = nation.is_active === 1;
+                    const isMonitored = monitoringData.monitored.has(nation.id);
+                    const hasResetTime = monitoringData.resetTimes.has(nation.id);
+                    
+                    let statusBadge = '';
+                    let monitoringStatus = '';
+                    
+                    if (!isActive) {
+                        statusBadge = '<span class="status-badge status-inactive">Inactive</span>';
+                        monitoringStatus = 'Not Active';
+                    } else if (hasResetTime) {
+                        statusBadge = '<span class="status-badge status-completed">Active</span>';
+                        monitoringStatus = 'Reset Time Found';
+                    } else if (isMonitored) {
+                        statusBadge = '<span class="status-badge status-monitoring">Active</span>';
+                        monitoringStatus = 'Being Monitored';
+                    } else {
+                        statusBadge = '<span class="status-badge status-active">Active</span>';
+                        monitoringStatus = 'Available';
+                    }
+                    
+                    // Apply status filter
+                    if (statusFilter) {
+                        const shouldShow = (
+                            (statusFilter === 'active' && isActive) ||
+                            (statusFilter === 'monitoring' && isMonitored) ||
+                            (statusFilter === 'completed' && hasResetTime)
+                        );
+                        if (!shouldShow) return;
+                    }
+                    
+                    const allianceName = nation.alliance_name || (nation.alliance_id === 0 ? 'None' : 'Unknown');
+                    const allianceDisplay = nation.alliance_id === 0 ? 'None' : allianceName;
+                    
+                    row.innerHTML = `
+                        <td><span class="nation-id">${nation.id}</span></td>
+                        <td><strong>${nation.nation_name}</strong></td>
+                        <td><span class="alliance-name">${allianceDisplay}</span></td>
+                        <td>${nation.alliance_id || '0'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${new Date(nation.last_updated).toLocaleString()}</td>
+                        <td>${monitoringStatus}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                if (tableBody.children.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #99aab5;">No nations match your filters</td></tr>';
+                }
+                
+            } catch (error) {
+                console.error('Error loading nations:', error);
+                tableBody.innerHTML = `<tr><td colspan="7" class="error">Error loading nations: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function loadMonitoringStatus() {
+            try {
+                const [queueResponse, resetResponse] = await Promise.all([
+                    fetch('/api/database/debug'),
+                    fetch('/api/monitoring/overview')
+                ]);
+                
+                const queueData = await queueResponse.json();
+                const resetData = await resetResponse.json();
+                
+                const monitored = new Set();
+                const resetTimes = new Set();
+                
+                // Add nations from queue sample
+                if (queueData.queue_sample) {
+                    queueData.queue_sample.forEach(item => {
+                        monitored.add(parseInt(item[0]));
+                    });
+                }
+                
+                // Add nations with reset times
+                if (resetData.recent_reset_times) {
+                    resetData.recent_reset_times.forEach(item => {
+                        resetTimes.add(item.nation_id);
+                    });
+                }
+                
+                return { monitored, resetTimes };
+            } catch (error) {
+                console.error('Error loading monitoring status:', error);
+                return { monitored: new Set(), resetTimes: new Set() };
+            }
+        }
+
+        function updatePagination() {
+            document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('prev-btn').disabled = currentPage <= 1;
+            document.getElementById('next-btn').disabled = currentPage >= totalPages;
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadNations();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadNations();
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('search').value = '';
+            document.getElementById('alliance-filter').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('page-size').value = '50';
+            currentPage = 1;
+            loadNations();
+        }
+
+        // Auto-search on input
+        document.getElementById('search').addEventListener('input', function() {
+            currentPage = 1;
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => loadNations(), 500);
+        });
+
+        // Auto-filter on change
+        document.getElementById('alliance-filter').addEventListener('change', function() {
+            currentPage = 1;
+            loadNations();
+        });
+
+        document.getElementById('status-filter').addEventListener('change', function() {
+            currentPage = 1;
+            loadNations();
+        });
+
+        document.getElementById('page-size').addEventListener('change', function() {
+            currentPage = 1;
+            loadNations();
+        });
+    </script>
+</body>
+</html>

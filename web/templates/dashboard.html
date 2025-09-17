@@ -24,6 +24,37 @@
             background-color: #2d2d2d;
             border-radius: 10px;
         }
+        .nav {
+            background-color: #3d3d3d;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .nav a {
+            color: #7289da;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .nav a:hover {
+            background-color: #7289da;
+            color: white;
+        }
+        .nav a.active {
+            background-color: #7289da;
+            color: white;
+        }
         .header h1 {
             color: #7289da;
             margin: 0;
@@ -123,6 +154,13 @@
             <p>Politics & War Discord Bot Control Panel</p>
             <span class="status online">Online</span>
         </div>
+
+        <nav class="nav">
+            <ul>
+                <li><a href="/" class="active">Dashboard</a></li>
+                <li><a href="/nations">Nations Database</a></li>
+            </ul>
+        </nav>
 
         <div class="grid">
             <div class="card">
