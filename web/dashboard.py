@@ -311,6 +311,43 @@ class WebDashboard:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
         
+        @self.app.route('/api/monitor/reset-queue-timing', methods=['POST'])
+        def api_reset_queue_timing():
+            """Reset monitoring queue timing to allow immediate checks"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Update monitoring queue to spread checks over the next hour
+                    # This prevents overwhelming the API while starting monitoring
+                    cursor.execute('''
+                        UPDATE monitoring_queue 
+                        SET next_check = datetime('now', '+' || (ROWID % 60) || ' minutes'),
+                            priority = 5
+                        WHERE next_check > datetime('now')
+                    ''')
+                    
+                    updated_count = cursor.rowcount
+                    conn.commit()
+                    
+                    # Count how many are now ready
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM monitoring_queue 
+                        WHERE next_check <= datetime('now', '+5 minutes')
+                    ''')
+                    ready_soon = cursor.fetchone()[0]
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Reset timing for {updated_count} nations",
+                    "updated_count": updated_count,
+                    "ready_within_5_minutes": ready_soon
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
         @self.app.route('/api/monitor/collect', methods=['POST'])
         def api_collect_nations():
             """Trigger nation collection"""
