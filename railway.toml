@@ -1,0 +1,15 @@
+# Railway Deployment Configuration
+# This file tells Railway how to deploy the application
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "python main.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+
+[env]
+PORT = "5000"
+PYTHONUNBUFFERED = "1"

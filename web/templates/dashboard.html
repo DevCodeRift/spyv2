@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpyV2 - Politics & War Bot Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #2d2d2d;
+            border-radius: 10px;
+        }
+        .header h1 {
+            color: #7289da;
+            margin: 0;
+        }
+        .card {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #7289da;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #7289da;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .btn {
+            background-color: #7289da;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #5b6eae;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #3c3c3c;
+            color: white;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.online {
+            background-color: #43b581;
+        }
+        .status.offline {
+            background-color: #f04747;
+        }
+        #results {
+            background-color: #3c3c3c;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕵️ SpyV2 Dashboard</h1>
+            <p>Politics & War Discord Bot Control Panel</p>
+            <span class="status online">Online</span>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>🎮 Game Information</h3>
+                <button class="btn" onclick="getGameInfo()">Get Game Info</button>
+                <div id="game-info"></div>
+            </div>
+
+            <div class="card">
+                <h3>🏛️ Nation Lookup</h3>
+                <div class="input-group">
+                    <label for="nation-name">Nation Name:</label>
+                    <input type="text" id="nation-name" placeholder="Enter nation name...">
+                </div>
+                <button class="btn" onclick="getNationInfo()">Lookup Nation</button>
+                <div id="nation-info"></div>
+            </div>
+
+            <div class="card">
+                <h3>🕵️ Spy Check</h3>
+                <div class="input-group">
+                    <label for="spy-nation-name">Nation Name:</label>
+                    <input type="text" id="spy-nation-name" placeholder="Enter nation name...">
+                </div>
+                <button class="btn" onclick="getSpyInfo()">Check Spy Activity</button>
+                <button class="btn" onclick="getMySpyInfo()">Check My Spy Status</button>
+                <div id="spy-info"></div>
+            </div>
+
+            <div class="card">
+                <h3>⚔️ War Status</h3>
+                <div class="input-group">
+                    <label for="war-nation-name">Nation Name (optional):</label>
+                    <input type="text" id="war-nation-name" placeholder="Leave empty for your wars...">
+                </div>
+                <button class="btn" onclick="getWarInfo()">Check Active Wars</button>
+                <div id="war-info"></div>
+            </div>
+
+            <div class="card">
+                <h3>🤖 Bot Status</h3>
+                <p><strong>Status:</strong> <span class="status online">Running</span></p>
+                <p><strong>API Key:</strong> ••••••••••••••f4 ✅</p>
+                <p><strong>Last API Test:</strong> Success</p>
+                <button class="btn" onclick="testAPI()">Test API Connection</button>
+            </div>
+
+            <div class="card">
+                <h3>📊 API Results</h3>
+                <div id="results">Ready to execute API commands...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function getGameInfo() {
+            try {
+                const response = await fetch('/api/gameinfo');
+                const data = await response.json();
+                
+                const gameInfoDiv = document.getElementById('game-info');
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.data && data.data.game_info) {
+                    const info = data.data.game_info;
+                    gameInfoDiv.innerHTML = `
+                        <p><strong>Game Date:</strong> ${info.game_date || 'Unknown'}</p>
+                        <p><strong>Global Radiation:</strong> ${info.radiation?.global || 'Unknown'}</p>
+                    `;
+                } else {
+                    gameInfoDiv.innerHTML = '<p style="color: #f04747;">Error loading game info</p>';
+                }
+                
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getNationInfo() {
+            const nationName = document.getElementById('nation-name').value;
+            if (!nationName) {
+                alert('Please enter a nation name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/nation/${encodeURIComponent(nationName)}`);
+                const data = await response.json();
+                
+                const nationInfoDiv = document.getElementById('nation-info');
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.data && data.data.nations && data.data.nations.data.length > 0) {
+                    const nation = data.data.nations.data[0];
+                    nationInfoDiv.innerHTML = `
+                        <p><strong>Nation:</strong> ${nation.nation_name}</p>
+                        <p><strong>Leader:</strong> ${nation.leader_name}</p>
+                        <p><strong>Alliance:</strong> ${nation.alliance?.name || 'None'}</p>
+                        <p><strong>Score:</strong> ${nation.score}</p>
+                    `;
+                } else {
+                    nationInfoDiv.innerHTML = '<p style="color: #f04747;">Nation not found</p>';
+                }
+                
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getSpyInfo() {
+            const nationName = document.getElementById('spy-nation-name').value;
+            if (!nationName) {
+                alert('Please enter a nation name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/spy/${encodeURIComponent(nationName)}`);
+                const data = await response.json();
+                
+                const spyInfoDiv = document.getElementById('spy-info');
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.error) {
+                    spyInfoDiv.innerHTML = `<p style="color: #f04747;">${data.error}</p>`;
+                } else if (data.spy_activity && data.spy_activity.data) {
+                    const nation = data.spy_activity.data.nations ? data.spy_activity.data.nations.data[0] : data.spy_activity.data.me.nation;
+                    const espionage = data.espionage_status.data.nations ? data.espionage_status.data.nations.data[0] : data.espionage_status.data.me.nation;
+                    
+                    spyInfoDiv.innerHTML = `
+                        <p><strong>Nation:</strong> ${nation.nation_name}</p>
+                        <p><strong>Spies Lost:</strong> ${nation.spy_casualties || 0}</p>
+                        <p><strong>Spies Killed:</strong> ${nation.spy_kills || 0}</p>
+                        <p><strong>Spy Attacks Made:</strong> ${nation.spy_attacks || 0}</p>
+                        <p><strong>Espionage Available:</strong> ${espionage.espionage_available ? '✅ Yes' : '❌ No'}</p>
+                        <p><strong>Beige Protection:</strong> ${espionage.beige_turns || 0} turns</p>
+                        <p><strong>Vacation Mode:</strong> ${espionage.vacation_mode_turns || 0} turns</p>
+                        ${nation.spy_casualties > 0 ? '<p style="color: #f04747;">⚠️ Recent spy losses detected!</p>' : ''}
+                    `;
+                } else {
+                    spyInfoDiv.innerHTML = '<p style="color: #f04747;">Error loading spy info</p>';
+                }
+                
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getMySpyInfo() {
+            try {
+                const response = await fetch('/api/spy/me');
+                const data = await response.json();
+                
+                const spyInfoDiv = document.getElementById('spy-info');
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.error) {
+                    spyInfoDiv.innerHTML = `<p style="color: #f04747;">${data.error}</p>`;
+                } else if (data.spy_activity && data.spy_activity.data) {
+                    const nation = data.spy_activity.data.me.nation;
+                    const espionage = data.espionage_status.data.me.nation;
+                    
+                    spyInfoDiv.innerHTML = `
+                        <p><strong>Your Nation:</strong> ${nation.nation_name}</p>
+                        <p><strong>Spies Lost:</strong> ${nation.spy_casualties || 0}</p>
+                        <p><strong>Spies Killed:</strong> ${nation.spy_kills || 0}</p>
+                        <p><strong>Spy Attacks Made:</strong> ${nation.spy_attacks || 0}</p>
+                        <p><strong>Espionage Available:</strong> ${espionage.espionage_available ? '✅ Yes' : '❌ No'}</p>
+                        <p><strong>Last Active:</strong> ${espionage.last_active}</p>
+                        ${nation.spy_casualties > 0 ? '<p style="color: #f04747;">⚠️ You have lost spies recently!</p>' : ''}
+                    `;
+                } else {
+                    spyInfoDiv.innerHTML = '<p style="color: #f04747;">Error loading spy info</p>';
+                }
+                
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getWarInfo() {
+            const nationName = document.getElementById('war-nation-name').value;
+            
+            try {
+                let url = '/api/wars';
+                if (nationName) {
+                    url += `?nation=${encodeURIComponent(nationName)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const warInfoDiv = document.getElementById('war-info');
+                const resultsDiv = document.getElementById('results');
+                
+                if (data.error) {
+                    warInfoDiv.innerHTML = `<p style="color: #f04747;">${data.error}</p>`;
+                } else if (data.data) {
+                    const wars = data.data.wars ? data.data.wars.data : data.data.me.nation.wars;
+                    
+                    if (wars.length === 0) {
+                        warInfoDiv.innerHTML = '<p>🕊️ No active wars found</p>';
+                    } else {
+                        let warHtml = `<p><strong>Active Wars:</strong> ${wars.length}</p>`;
+                        wars.slice(0, 3).forEach(war => {
+                            warHtml += `
+                                <div style="border-left: 3px solid #7289da; padding-left: 10px; margin: 10px 0;">
+                                    <p><strong>War #${war.id}</strong></p>
+                                    <p>Attacker: ${war.attacker.nation_name}</p>
+                                    <p>Defender: ${war.defender.nation_name}</p>
+                                    <p>Turns Left: ${war.turns_left}</p>
+                                </div>
+                            `;
+                        });
+                        warInfoDiv.innerHTML = warHtml;
+                    }
+                } else {
+                    warInfoDiv.innerHTML = '<p style="color: #f04747;">Error loading war info</p>';
+                }
+                
+                resultsDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Load game info on page load
+        window.onload = function() {
+            getGameInfo();
+        };
+
+        async function testAPI() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                document.getElementById('results').textContent = 'Health Check: ' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').textContent = 'API Test Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
