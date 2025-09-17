@@ -77,9 +77,9 @@ async def test_monitoring_system():
     print("🔍 Testing espionage monitoring system...")
     
     try:
-        api = PoliticsAndWarAPI(os.getenv('PNW_API_KEY'))
+        api_key = os.getenv('PNW_API_KEY')
         tracker = EspionageTracker()
-        monitor = EspionageMonitor(api, tracker)
+        monitor = EspionageMonitor(api_key)
         
         print("  Testing monitoring system initialization...")
         stats = monitor.get_monitoring_stats()

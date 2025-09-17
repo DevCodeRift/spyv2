@@ -25,7 +25,7 @@ class WebDashboard:
                 self.pnw_api = PoliticsAndWarAPI(api_key)
                 # Initialize monitoring system
                 self.espionage_tracker = EspionageTracker()
-                self.espionage_monitor = EspionageMonitor(self.pnw_api, self.espionage_tracker)
+                self.espionage_monitor = EspionageMonitor(api_key)
             except Exception as e:
                 print(f"⚠️ Warning: Could not initialize monitoring system: {e}")
                 self.pnw_api = None
