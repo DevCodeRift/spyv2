@@ -52,7 +52,7 @@ class WebDashboard:
         @self.app.route('/monitoring')
         def monitoring_dashboard():
             """Monitoring dashboard page"""
-            return render_template('monitoring.html')
+            return render_template('dashboard.html')  # Use existing template
         
         @self.app.route('/health')
         def health():
