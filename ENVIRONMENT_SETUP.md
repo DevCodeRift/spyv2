@@ -13,7 +13,7 @@ DISCORD_TOKEN=your_discord_bot_token_here
 - **Where to get**: 
   1. Go to https://discord.com/developers/applications
   2. Create new application → Bot → Copy token
-- **Example**: `DISCORD_TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4.GhIJKl.MnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWxYz`
+- **Example**: `DISCORD_TOKEN=MTIzNDU2Nzg5MFAKE_TOKEN.ABCDEF.FAKE_SIGNATURE_NOT_REAL_TOKEN_123`
 
 #### 2. **PNW_API_KEY** ⭐
 ```bash
@@ -25,7 +25,7 @@ PNW_API_KEY=your_politics_and_war_api_key
   1. Log into Politics & War game
   2. Go to Account Settings → API Key
   3. Generate new key if needed
-- **Example**: `PNW_API_KEY=05e5e3753de6b6f257f4abcd1234567890`
+- **Example**: `PNW_API_KEY=FAKE_API_KEY_NOT_REAL_1234567890abcdef`
 
 ---
 
