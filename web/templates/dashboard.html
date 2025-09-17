@@ -90,6 +90,14 @@
         .status.offline {
             background-color: #f04747;
         }
+        .status.active {
+            background-color: #43b581;
+            color: white;
+        }
+        .status.inactive {
+            background-color: #f04747;
+            color: white;
+        }
         #results {
             background-color: #3c3c3c;
             padding: 15px;
@@ -375,26 +383,30 @@
                 const response = await fetch('/api/monitoring/overview');
                 const data = await response.json();
                 
-                const statusEl = document.getElementById('monitoring-status');
+                // Update status elements
+                const statusEl = document.getElementById('monitor-status');
                 const nationsEl = document.getElementById('nations-count');
                 const queueEl = document.getElementById('queue-ready');
-                const resetsEl = document.getElementById('resets-found');
+                const resetsEl = document.getElementById('reset-times');
+                const checksEl = document.getElementById('checks-24h');
                 
                 if (data.error) {
-                    statusEl.textContent = 'Error';
-                    statusEl.className = 'status-badge status-offline';
+                    statusEl.textContent = 'Error: ' + data.error;
+                    statusEl.className = 'status-offline';
                 } else {
-                    statusEl.textContent = data.monitoring_active ? 'Active' : 'Inactive';
-                    statusEl.className = data.monitoring_active ? 'status-badge status-online' : 'status-badge status-offline';
+                    const isRunning = data.monitoring_status?.is_running || false;
+                    statusEl.textContent = isRunning ? 'Running' : 'Stopped';
+                    statusEl.className = isRunning ? 'status-online' : 'status-offline';
                     
-                    nationsEl.textContent = data.nations_count || 0;
-                    queueEl.textContent = data.ready_to_check || 0;
-                    resetsEl.textContent = data.reset_times_found || 0;
+                    nationsEl.textContent = data.database_stats?.total_nations || 0;
+                    queueEl.textContent = data.database_stats?.ready_to_check_now || 0;
+                    resetsEl.textContent = data.database_stats?.reset_times_found || 0;
+                    checksEl.textContent = data.database_stats?.checks_last_24h || 0;
                 }
             } catch (error) {
                 console.error('Error getting monitoring status:', error);
-                document.getElementById('monitoring-status').textContent = 'Error';
-                document.getElementById('monitoring-status').className = 'status-badge status-offline';
+                document.getElementById('monitor-status').textContent = 'Error loading';
+                document.getElementById('monitor-status').className = 'status-offline';
             }
         }
 
