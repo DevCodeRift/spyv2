@@ -49,6 +49,11 @@ class WebDashboard:
             """Main dashboard page"""
             return render_template('dashboard.html')
         
+        @self.app.route('/monitoring')
+        def monitoring_dashboard():
+            """Monitoring dashboard page"""
+            return render_template('monitoring.html')
+        
         @self.app.route('/health')
         def health():
             """Health check endpoint for Railway deployment"""
@@ -307,6 +312,73 @@ class WebDashboard:
                     "reset_times_found": reset_times,
                     "ready_to_check_now": ready_to_check,
                     "queue_sample": queue_sample
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/monitoring/overview')
+        def api_monitoring_overview():
+            """Complete monitoring system overview"""
+            if not self.espionage_tracker or not self.espionage_monitor:
+                return jsonify({"error": "Monitoring system not initialized"}), 503
+            try:
+                # Get monitoring status
+                monitor_stats = self.espionage_monitor.get_monitoring_stats()
+                
+                # Get database stats
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Basic counts
+                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
+                    total_nations = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
+                    queue_count = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM reset_times')
+                    reset_times_found = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM espionage_status WHERE checked_at > datetime("now", "-24 hours")')
+                    checks_24h = cursor.fetchone()[0]
+                    
+                    # Nations ready to check
+                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue WHERE next_check <= datetime("now")')
+                    ready_to_check = cursor.fetchone()[0]
+                    
+                    # Recent activity
+                    cursor.execute('''
+                        SELECT es.nation_id, n.nation_name, es.espionage_available, es.checked_at
+                        FROM espionage_status es
+                        JOIN nations n ON es.nation_id = n.id
+                        ORDER BY es.checked_at DESC
+                        LIMIT 10
+                    ''')
+                    recent_activity = [dict(zip(['nation_id', 'nation_name', 'espionage_available', 'checked_at'], row))
+                                     for row in cursor.fetchall()]
+                    
+                    # Recent reset times
+                    cursor.execute('''
+                        SELECT rt.nation_id, n.nation_name, rt.reset_time, rt.detection_method
+                        FROM reset_times rt
+                        JOIN nations n ON rt.nation_id = n.id
+                        ORDER BY rt.reset_time DESC
+                        LIMIT 5
+                    ''')
+                    recent_resets = [dict(zip(['nation_id', 'nation_name', 'reset_time', 'detection_method'], row))
+                                   for row in cursor.fetchall()]
+                
+                return jsonify({
+                    "monitoring_status": monitor_stats,
+                    "database_stats": {
+                        "total_nations": total_nations,
+                        "monitoring_queue_count": queue_count,
+                        "reset_times_found": reset_times_found,
+                        "checks_last_24h": checks_24h,
+                        "ready_to_check_now": ready_to_check
+                    },
+                    "recent_activity": recent_activity,
+                    "recent_reset_times": recent_resets
                 })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
