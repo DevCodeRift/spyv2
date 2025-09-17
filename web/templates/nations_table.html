@@ -415,9 +415,13 @@
                     throw new Error(data.error);
                 }
                 
+                console.log('API Response:', data); // Debug info
+                
                 // Calculate total pages
-                totalPages = Math.ceil((data.total || data.count || 50) / pageSize);
+                totalPages = Math.ceil((data.total || data.count || 1) / pageSize);
                 updatePagination();
+                
+                console.log(`Total: ${data.total}, Current Page: ${currentPage}, Total Pages: ${totalPages}`); // Debug info
                 
                 // Clear table
                 tableBody.innerHTML = '';
@@ -537,8 +541,28 @@
 
         function updatePagination() {
             document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages}`;
-            document.getElementById('prev-btn').disabled = currentPage <= 1;
-            document.getElementById('next-btn').disabled = currentPage >= totalPages;
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+            
+            // Also update button styles
+            if (prevBtn.disabled) {
+                prevBtn.style.opacity = '0.5';
+                prevBtn.style.cursor = 'not-allowed';
+            } else {
+                prevBtn.style.opacity = '1';
+                prevBtn.style.cursor = 'pointer';
+            }
+            
+            if (nextBtn.disabled) {
+                nextBtn.style.opacity = '0.5';
+                nextBtn.style.cursor = 'not-allowed';
+            } else {
+                nextBtn.style.opacity = '1';
+                nextBtn.style.cursor = 'pointer';
+            }
         }
 
         function previousPage() {

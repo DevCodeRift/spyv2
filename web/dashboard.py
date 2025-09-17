@@ -532,12 +532,28 @@ class WebDashboard:
                 offset = request.args.get('offset', 0, type=int)
                 alliance_id = request.args.get('alliance_id', type=int)
                 
-                if alliance_id:
-                    nations = self.espionage_tracker.get_alliance_nations(alliance_id)
-                else:
-                    # Get all nations with pagination
-                    with sqlite3.connect(self.espionage_tracker.db_path) as conn:
-                        cursor = conn.cursor()
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    if alliance_id:
+                        # Get nations from specific alliance
+                        cursor.execute('''
+                            SELECT id, nation_name, alliance_id, alliance_name, 
+                                   last_updated, is_active
+                            FROM nations 
+                            WHERE alliance_id = ?
+                            ORDER BY id DESC 
+                            LIMIT ? OFFSET ?
+                        ''', (alliance_id, limit, offset))
+                        
+                        columns = [description[0] for description in cursor.description]
+                        nations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        
+                        # Get total count for this alliance
+                        cursor.execute('SELECT COUNT(*) FROM nations WHERE alliance_id = ?', (alliance_id,))
+                        total_count = cursor.fetchone()[0]
+                    else:
+                        # Get all nations with pagination
                         cursor.execute('''
                             SELECT id, nation_name, alliance_id, alliance_name, 
                                    last_updated, is_active
@@ -548,10 +564,15 @@ class WebDashboard:
                         
                         columns = [description[0] for description in cursor.description]
                         nations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        
+                        # Get total count of all nations
+                        cursor.execute('SELECT COUNT(*) FROM nations')
+                        total_count = cursor.fetchone()[0]
                 
                 return jsonify({
                     "nations": nations,
                     "count": len(nations),
+                    "total": total_count,
                     "limit": limit,
                     "offset": offset
                 })
