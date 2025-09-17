@@ -265,6 +265,52 @@ class WebDashboard:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
         
+        @self.app.route('/api/database/debug')
+        def api_debug_database():
+            """Debug database contents"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Count nations
+                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
+                    active_nations = cursor.fetchone()[0]
+                    
+                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1 AND alliance_id IS NOT NULL')
+                    alliance_nations = cursor.fetchone()[0]
+                    
+                    # Count monitoring queue
+                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
+                    queue_count = cursor.fetchone()[0]
+                    
+                    # Count reset times
+                    cursor.execute('SELECT COUNT(*) FROM reset_times')
+                    reset_times = cursor.fetchone()[0]
+                    
+                    # Sample monitoring queue
+                    cursor.execute('SELECT nation_id, reason, next_check FROM monitoring_queue LIMIT 5')
+                    queue_sample = cursor.fetchall()
+                    
+                    # Nations with immediate checks available
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM monitoring_queue 
+                        WHERE next_check <= datetime('now')
+                    ''')
+                    ready_to_check = cursor.fetchone()[0]
+                
+                return jsonify({
+                    "active_nations": active_nations,
+                    "alliance_nations": alliance_nations,
+                    "monitoring_queue_count": queue_count,
+                    "reset_times_found": reset_times,
+                    "ready_to_check_now": ready_to_check,
+                    "queue_sample": queue_sample
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
         @self.app.route('/api/monitor/collect', methods=['POST'])
         def api_collect_nations():
             """Trigger nation collection"""
