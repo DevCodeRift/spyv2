@@ -378,7 +378,50 @@ class WebDashboard:
                         "ready_to_check_now": ready_to_check
                     },
                     "recent_activity": recent_activity,
-                    "recent_reset_times": recent_resets
+                    "recent_reset_times": recent_resets,
+                    # Add simplified fields for easier access
+                    "monitoring_active": monitor_stats.get("active", False) if monitor_stats else False,
+                    "nations_count": total_nations,
+                    "ready_to_check": ready_to_check,
+                    "reset_times_found": reset_times_found
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/monitoring/recent')
+        def api_monitoring_recent():
+            """Get recent monitoring activity"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Recent activity with status
+                    cursor.execute('''
+                        SELECT es.nation_id, n.nation_name, es.espionage_available, es.checked_at,
+                               CASE WHEN es.espionage_available = 1 THEN 'Espionage Available'
+                                    ELSE 'No Espionage Available' END as status
+                        FROM espionage_status es
+                        JOIN nations n ON es.nation_id = n.id
+                        ORDER BY es.checked_at DESC
+                        LIMIT 10
+                    ''')
+                    recent_checks = cursor.fetchall()
+                    
+                    activity = []
+                    for row in recent_checks:
+                        activity.append({
+                            'nation_id': row[0],
+                            'nation_name': row[1],
+                            'espionage_available': row[2],
+                            'timestamp': row[3],
+                            'status': row[4]
+                        })
+                
+                return jsonify({
+                    "activity": activity,
+                    "count": len(activity)
                 })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500

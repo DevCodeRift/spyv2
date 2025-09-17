@@ -56,6 +56,11 @@
         .btn:hover {
             background-color: #5b6eae;
         }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
         .input-group {
             margin-bottom: 15px;
         }
@@ -147,6 +152,22 @@
                 <p><strong>API Key:</strong> ••••••••••••••f4 ✅</p>
                 <p><strong>Last API Test:</strong> Success</p>
                 <button class="btn" onclick="testAPI()">Test API Connection</button>
+            </div>
+
+            <div class="card">
+                <h3>🔍 24/7 Espionage Monitoring</h3>
+                <div id="monitoring-status">
+                    <p><strong>System Status:</strong> <span id="monitor-status" class="status">Loading...</span></p>
+                    <p><strong>Nations Monitored:</strong> <span id="nations-count">Loading...</span></p>
+                    <p><strong>Queue Ready:</strong> <span id="queue-ready">Loading...</span></p>
+                    <p><strong>Reset Times Found:</strong> <span id="reset-times">Loading...</span></p>
+                    <p><strong>Checks (24h):</strong> <span id="checks-24h">Loading...</span></p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" onclick="getMonitoringStatus()">Refresh Status</button>
+                    <button class="btn" onclick="getRecentActivity()">Recent Activity</button>
+                </div>
+                <div id="monitoring-details" style="margin-top: 15px;"></div>
             </div>
 
             <div class="card">
@@ -335,6 +356,8 @@
         // Load game info on page load
         window.onload = function() {
             getGameInfo();
+            getMonitoringStatus();
+            getRecentActivity();
         };
 
         async function testAPI() {
@@ -344,6 +367,64 @@
                 document.getElementById('results').textContent = 'Health Check: ' + JSON.stringify(data, null, 2);
             } catch (error) {
                 document.getElementById('results').textContent = 'API Test Error: ' + error.message;
+            }
+        }
+
+        async function getMonitoringStatus() {
+            try {
+                const response = await fetch('/api/monitoring/overview');
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('monitoring-status');
+                const nationsEl = document.getElementById('nations-count');
+                const queueEl = document.getElementById('queue-ready');
+                const resetsEl = document.getElementById('resets-found');
+                
+                if (data.error) {
+                    statusEl.textContent = 'Error';
+                    statusEl.className = 'status-badge status-offline';
+                } else {
+                    statusEl.textContent = data.monitoring_active ? 'Active' : 'Inactive';
+                    statusEl.className = data.monitoring_active ? 'status-badge status-online' : 'status-badge status-offline';
+                    
+                    nationsEl.textContent = data.nations_count || 0;
+                    queueEl.textContent = data.ready_to_check || 0;
+                    resetsEl.textContent = data.reset_times_found || 0;
+                }
+            } catch (error) {
+                console.error('Error getting monitoring status:', error);
+                document.getElementById('monitoring-status').textContent = 'Error';
+                document.getElementById('monitoring-status').className = 'status-badge status-offline';
+            }
+        }
+
+        async function getRecentActivity() {
+            try {
+                const response = await fetch('/api/monitoring/recent');
+                const data = await response.json();
+                
+                const activityEl = document.getElementById('recent-activity');
+                
+                if (data.error || !data.activity || data.activity.length === 0) {
+                    activityEl.innerHTML = '<p>No recent activity</p>';
+                    return;
+                }
+                
+                let activityHtml = '';
+                data.activity.slice(0, 5).forEach(item => {
+                    const time = new Date(item.timestamp).toLocaleString();
+                    activityHtml += `
+                        <div style="border-left: 3px solid #7289da; padding-left: 10px; margin: 5px 0;">
+                            <p><strong>${item.nation_name}</strong> - ${item.status}</p>
+                            <p style="font-size: 12px; color: #72767d;">${time}</p>
+                        </div>
+                    `;
+                });
+                
+                activityEl.innerHTML = activityHtml;
+            } catch (error) {
+                console.error('Error getting recent activity:', error);
+                document.getElementById('recent-activity').innerHTML = '<p style="color: #f04747;">Error loading activity</p>';
             }
         }
     </script>
