@@ -160,10 +160,65 @@ class WebDashboard:
             if not self.espionage_monitor:
                 return jsonify({"error": "Monitoring system not initialized - check PNW_API_KEY"}), 503
             try:
-                # Start monitoring in background
+                # Start monitoring in background using a new event loop
                 import asyncio
-                asyncio.create_task(self.espionage_monitor.start_24_7_monitoring())
-                return jsonify({"success": True, "message": "Monitoring started"})
+                import threading
+                
+                def start_monitoring():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self.espionage_monitor.start_24_7_monitoring())
+                
+                # Start in a separate thread
+                monitoring_thread = threading.Thread(target=start_monitoring, daemon=True)
+                monitoring_thread.start()
+                
+                return jsonify({"success": True, "message": "Monitoring started in background"})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/monitor/test-check', methods=['POST'])
+        def api_test_check():
+            """Test monitoring by checking a few nations"""
+            if not self.espionage_monitor:
+                return jsonify({"error": "Monitoring system not initialized - check PNW_API_KEY"}), 503
+            try:
+                # Get a few nations to test
+                nations = self.espionage_tracker.get_nations_needing_monitoring()[:5]
+                
+                if not nations:
+                    return jsonify({"message": "No nations need monitoring", "nations_checked": 0})
+                
+                # Test check a few nations
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                results = []
+                for nation in nations:
+                    try:
+                        result = loop.run_until_complete(
+                            self.espionage_monitor.check_nation_espionage_status(nation['id'])
+                        )
+                        results.append({
+                            'nation_id': nation['id'],
+                            'nation_name': nation['nation_name'],
+                            'result': result
+                        })
+                    except Exception as e:
+                        results.append({
+                            'nation_id': nation['id'],
+                            'nation_name': nation['nation_name'],
+                            'error': str(e)
+                        })
+                
+                loop.close()
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Tested {len(results)} nations",
+                    "results": results
+                })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
         
