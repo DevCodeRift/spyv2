@@ -702,8 +702,8 @@ class DiscordBot:
                 )
                 
                 embed.add_field(name="Status", value="🟢 Running" if stats.get('is_running') else "🔴 Stopped", inline=True)
-                embed.add_field(name="Nations Monitored", value=stats.get('nations_count', 0), inline=True)
-                embed.add_field(name="Reset Times Found", value=stats.get('reset_times_found', 0), inline=True)
+                embed.add_field(name="Nations Monitored", value=stats.get('total_nations', 0), inline=True)
+                embed.add_field(name="Reset Times Found", value=stats.get('reset_times_detected', 0), inline=True)
                 
                 await interaction.response.send_message(embed=embed)
                 
