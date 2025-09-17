@@ -7,6 +7,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import sqlite3
 import asyncio
+import time
 from threading import Thread
 from api.pnw_api import PoliticsAndWarAPI
 from utils.espionage_monitor import EspionageMonitor
@@ -109,10 +110,10 @@ class WebDashboard:
             print(f"⚠️ Error during auto-initialization: {e}")
     
     def start_background_monitoring(self):
-        """Start monitoring in background thread"""
+        """Start monitoring in background thread with proper sequencing"""
         if not self.espionage_monitor:
             return
-        
+
         # Check if monitoring is already running
         if hasattr(self, '_monitoring_thread') and self._monitoring_thread and self._monitoring_thread.is_alive():
             print("⚠️ Monitoring already running, skipping start")
@@ -121,7 +122,7 @@ class WebDashboard:
         print("🔄 Starting background monitoring...")
         
         def monitoring_worker():
-            """Background monitoring worker"""
+            """Background monitoring worker with sequential operations"""
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -144,8 +145,22 @@ class WebDashboard:
                     ''')
                     conn.commit()
                 
-                # Start the monitoring loop
-                loop.run_until_complete(self.espionage_monitor.start_24_7_monitoring())
+                # Step 1: Index all nations first (respecting rate limits)
+                print("📊 Step 1: Indexing all nations (respecting 60 req/min limit)...")
+                print("⏳ Starting indexing in 5 seconds to avoid conflicts...")
+                time.sleep(5)  # Prevent multiple indexing processes
+                
+                indexing_result = loop.run_until_complete(self.espionage_monitor.index_all_nations())
+                
+                if indexing_result.get('success'):
+                    print(f"✅ Indexing complete: {indexing_result.get('alliance_nations', 0)} alliance nations indexed")
+                    
+                    # Step 2: Start monitoring after indexing is complete
+                    print("📊 Step 2: Starting espionage monitoring...")
+                    loop.run_until_complete(self.espionage_monitor.start_espionage_monitoring())
+                else:
+                    print(f"❌ Indexing failed: {indexing_result.get('error', 'Unknown error')}")
+                    return
                 
             except Exception as e:
                 print(f"❌ Monitoring worker error: {e}")

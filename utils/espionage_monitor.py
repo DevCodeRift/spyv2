@@ -41,16 +41,12 @@ class EspionageMonitor:
             print(f"⚠️ Failed to update heartbeat: {e}")
     
     async def start_24_7_monitoring(self):
-        """Start the 24/7 monitoring system with optimized workflow"""
+        """Start the 24/7 monitoring system (monitoring only, indexing done separately)"""
         print("🚀 Starting 24/7 Espionage Monitoring System...")
         self.is_running = True
         
-        # Phase 1: Index all nations in the game first
-        print("📊 Phase 1: Indexing all nations in the game...")
-        await self.index_all_nations()
-        
-        # Phase 2: Start monitoring espionage activity
-        print("🔍 Phase 2: Starting espionage monitoring...")
+        # Start monitoring espionage activity (indexing should be done separately)
+        print("🔍 Starting espionage monitoring...")
         await self.start_espionage_monitoring()
         
         # Schedule regular tasks
@@ -178,7 +174,11 @@ class EspionageMonitor:
                     break
                 
                 page += 1
-                await asyncio.sleep(1)  # Rate limiting
+                
+                # Rate limiting: 60 requests per minute = 1 request per second
+                # Using 1.5 seconds for safety margin to avoid 429 errors
+                print(f"⏳ Rate limiting: waiting 1.5 seconds before next request...")
+                await asyncio.sleep(1.5)  # Conservative rate limiting
             
             print(f"✅ Indexing complete!")
             print(f"   • Total nations processed: {total_nations:,}")

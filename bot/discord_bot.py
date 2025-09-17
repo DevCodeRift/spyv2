@@ -74,12 +74,12 @@ class DiscordBot:
             except Exception as e:
                 print(f'❌ Failed to sync slash commands: {e}')
             
-            # Automatically start 24/7 monitoring
+            # Don't auto-start monitoring from Discord bot
+            # The web dashboard will handle monitoring initialization
             if self.espionage_monitor:
-                print("🚀 Auto-starting 24/7 espionage monitoring...")
-                if not self.monitoring_task or self.monitoring_task.done():
-                    self.monitoring_task = asyncio.create_task(self.espionage_monitor.start_24_7_monitoring())
-                    print("✅ 24/7 monitoring started automatically")
+                print("✅ Monitoring system available (managed by web dashboard)")
+            else:
+                print("⚠️ Monitoring system not available")
     
     def setup_commands(self):
         """Set up bot prefix commands"""
