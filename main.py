@@ -4,44 +4,61 @@ Runs both the Discord bot and web dashboard with espionage monitoring
 """
 
 import os
-import asyncio
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Import bot and web components
-from bot.discord_bot import DiscordBot
-from web.dashboard import WebDashboard
+def start_health_only_server():
+    """Start minimal health server when main application can't start"""
+    from flask import Flask, jsonify
+    
+    app = Flask(__name__)
+    
+    @app.route('/health')
+    def health():
+        return jsonify({
+            "status": "healthy",
+            "service": "Politics & War Discord Bot",
+            "mode": "health-only"
+        }), 200
+    
+    @app.route('/')
+    def root():
+        return jsonify({
+            "status": "health-only mode",
+            "message": "Set DISCORD_TOKEN and PNW_API_KEY environment variables to enable full functionality"
+        })
+    
+    port = int(os.getenv('PORT', 5000))
+    print(f"🏥 Health-only server starting on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
+
+# Check for required environment variables FIRST
+required_vars = ['DISCORD_TOKEN', 'PNW_API_KEY']
+missing_vars = [var for var in required_vars if not os.getenv(var)]
+
+if missing_vars:
+    print(f"❌ Missing required environment variables: {', '.join(missing_vars)}")
+    print("🏥 Starting health-only server for Railway deployment...")
+    start_health_only_server()
+    sys.exit(0)
+
+# Only import heavy modules if we have the required environment variables
+try:
+    import asyncio
+    from bot.discord_bot import DiscordBot
+    from web.dashboard import WebDashboard
+except ImportError as e:
+    print(f"❌ Import error: {e}")
+    print("🏥 Starting health-only server due to import error")
+    start_health_only_server()
+    sys.exit(0)
 
 async def main():
     """Main application entry point"""
     print("🚀 Starting Politics & War Discord Bot with Espionage Monitoring...")
-    
-    # Check for required environment variables
-    required_vars = ['DISCORD_TOKEN', 'PNW_API_KEY']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    
-    if missing_vars:
-        print(f"❌ Missing required environment variables: {', '.join(missing_vars)}")
-        print("\n🔧 Quick Fix:")
-        print("1. Copy .env.example to .env")
-        print("2. Edit .env and fill in your tokens:")
-        for var in missing_vars:
-            if var == 'DISCORD_TOKEN':
-                print("   - DISCORD_TOKEN: Get from https://discord.com/developers/applications")
-            elif var == 'PNW_API_KEY':
-                print("   - PNW_API_KEY: Get from Politics & War account settings")
-        print("3. Run: python check_env.py (to verify)")
-        print("4. Run: python main.py (to start the bot)")
-        print("\n📖 For detailed setup guide, see: ENVIRONMENT_SETUP.md")
-        
-        # Start health-only server for Railway deployment
-        print("\n🏥 Starting health-only server for deployment...")
-        from health_server import main as health_main
-        health_main()
-        return
-    
     print("✅ Environment variables configured")
     print("📊 Web dashboard will be available at http://localhost:5000")
     print("🤖 Discord bot will connect to Discord")
@@ -82,4 +99,9 @@ async def main():
         print(f"❌ Error starting services: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"❌ Fatal error in main application: {e}")
+        print("🏥 Starting emergency health-only server...")
+        start_health_only_server()
