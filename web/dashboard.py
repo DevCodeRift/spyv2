@@ -190,6 +190,26 @@ class WebDashboard:
             """Nations database table page"""
             return render_template('nations_table.html')
         
+        @self.app.route('/database')
+        def database():
+            """Database page - redirect to nations table"""
+            return render_template('nations_table.html')
+        
+        @self.app.route('/dashboard')
+        def dashboard_alt():
+            """Alternative dashboard route"""
+            return render_template('dashboard.html')
+        
+        @self.app.route('/monitor')
+        def monitor():
+            """Monitor page - redirect to main dashboard"""
+            return render_template('dashboard.html')
+        
+        @self.app.route('/status')
+        def status():
+            """Status page - redirect to main dashboard"""
+            return render_template('dashboard.html')
+        
         @self.app.route('/health')
         def health():
             """Health check endpoint for Railway deployment"""
@@ -820,6 +840,12 @@ class WebDashboard:
                 })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
+        
+        # Error handlers
+        @self.app.errorhandler(404)
+        def not_found(error):
+            """Handle 404 errors with helpful navigation"""
+            return render_template('404.html'), 404
     
     def run_flask_app(self):
         """Run the Flask app in a separate thread"""
