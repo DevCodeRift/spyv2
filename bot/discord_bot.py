@@ -1,10 +1,11 @@
 """
 Discord bot for Politics & War
-Handles Discord interactions and commands
+Handles Discord interactions and slash commands
 """
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 import os
 import asyncio
 from api.pnw_api import PoliticsAndWarAPI
@@ -18,12 +19,12 @@ class DiscordBot:
         self.token = os.getenv('DISCORD_TOKEN')
         self.api_key = os.getenv('PNW_API_KEY')
         
-        # Set up bot intents
+        # Set up bot intents for slash commands
         intents = discord.Intents.default()
         intents.message_content = True
         
-        # Initialize bot
-        self.bot = commands.Bot(command_prefix='!', intents=intents)
+        # Initialize bot with both prefix and slash command support
+        self.bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
         
         # Initialize API (defensive initialization)
         if self.api_key:
@@ -56,6 +57,7 @@ class DiscordBot:
         # Add event handlers
         self.setup_events()
         self.setup_commands()
+        self.setup_slash_commands()  # Add slash commands alongside prefix commands
     
     def setup_events(self):
         """Set up bot events"""
@@ -65,18 +67,30 @@ class DiscordBot:
             print(f'{self.bot.user} has connected to Discord!')
             print(f'Bot is in {len(self.bot.guilds)} guilds')
             
+            # Sync slash commands
+            try:
+                synced = await self.bot.tree.sync()
+                print(f'✅ Synced {len(synced)} slash commands')
+            except Exception as e:
+                print(f'❌ Failed to sync slash commands: {e}')
+            
             # Automatically start 24/7 monitoring
-            print("🚀 Auto-starting 24/7 espionage monitoring...")
-            if not self.monitoring_task or self.monitoring_task.done():
-                self.monitoring_task = asyncio.create_task(self.espionage_monitor.start_24_7_monitoring())
-                print("✅ 24/7 monitoring started automatically")
+            if self.espionage_monitor:
+                print("🚀 Auto-starting 24/7 espionage monitoring...")
+                if not self.monitoring_task or self.monitoring_task.done():
+                    self.monitoring_task = asyncio.create_task(self.espionage_monitor.start_24_7_monitoring())
+                    print("✅ 24/7 monitoring started automatically")
     
     def setup_commands(self):
-        """Set up bot commands"""
+        """Set up bot prefix commands"""
         
         @self.bot.command(name='nation')
         async def get_nation_info(ctx, *, nation_name: str = None):
             """Get information about a nation"""
+            if not self.pnw_api:
+                await ctx.send("❌ API not available - check environment variables")
+                return
+                
             try:
                 if nation_name:
                     # Search for nation by name
@@ -122,6 +136,10 @@ class DiscordBot:
         @self.bot.command(name='gameinfo')
         async def get_game_info(ctx):
             """Get current game information"""
+            if not self.pnw_api:
+                await ctx.send("❌ API not available - check environment variables")
+                return
+                
             try:
                 result = self.pnw_api.get_game_info()
                 
@@ -146,7 +164,7 @@ class DiscordBot:
             except Exception as e:
                 await ctx.send(f"An error occurred: {str(e)}")
         
-        @self.bot.command(name='help')
+        @self.bot.command(name='commands')
         async def help_command(ctx):
             """Show all available commands"""
             embed = discord.Embed(
@@ -160,7 +178,8 @@ class DiscordBot:
                 name="📊 Basic Commands",
                 value="`!ping` - Check bot status\n"
                       "`!gameinfo` - Get game information\n"
-                      "`!nation <name>` - Get nation info",
+                      "`!nation <name>` - Get nation info\n"
+                      "`!commands` - Show this help",
                 inline=False
             )
             
@@ -619,6 +638,137 @@ class DiscordBot:
                 
             except Exception as e:
                 await ctx.send(f"An error occurred: {str(e)}")
+    
+    def setup_slash_commands(self):
+        """Set up modern slash commands (alongside prefix commands)"""
+        
+        @self.bot.tree.command(name='commands', description='Show all available bot commands')
+        async def slash_commands(interaction: discord.Interaction):
+            """Show all available commands via slash command"""
+            embed = discord.Embed(
+                title="🤖 Politics & War Bot Commands",
+                description="Available commands for espionage monitoring and game info",
+                color=0x0099ff
+            )
+            
+            # Basic commands
+            embed.add_field(
+                name="📊 Basic Commands",
+                value="`/commands` or `!commands` - Show this help\n"
+                      "`/ping` or `!ping` - Check bot status\n"
+                      "`/gameinfo` or `!gameinfo` - Get game information\n"
+                      "`/nation` or `!nation <name>` - Get nation info",
+                inline=False
+            )
+            
+            # Spy commands
+            embed.add_field(
+                name="🕵️ Espionage Commands",
+                value="`/spy` or `!spy [nation]` - Check spy activity\n"
+                      "`/monitor` or `!monitor` - Check 24/7 monitoring status\n"
+                      "`/resets` or `!resets [alliance]` - Show reset times",
+                inline=False
+            )
+            
+            # Note about slash vs prefix
+            embed.add_field(
+                name="💡 How to Use",
+                value="• Use **slash commands** (`/command`) - type `/` and select from menu\n"
+                      "• Or use **prefix commands** (`!command`) - type `!` followed by command\n"
+                      "• Slash commands are the modern Discord standard! ✨",
+                inline=False
+            )
+            
+            await interaction.response.send_message(embed=embed)
+        
+        @self.bot.tree.command(name='ping', description='Check if the bot is responsive')
+        async def slash_ping(interaction: discord.Interaction):
+            """Ping command via slash command"""
+            await interaction.response.send_message('🏓 Pong! Bot is online and responsive.')
+        
+        @self.bot.tree.command(name='monitor', description='Check 24/7 espionage monitoring status')
+        async def slash_monitor(interaction: discord.Interaction):
+            """Check monitoring status via slash command"""
+            if not self.espionage_monitor:
+                await interaction.response.send_message("❌ Monitoring system not available - check environment variables")
+                return
+                
+            try:
+                stats = self.espionage_monitor.get_monitoring_stats()
+                
+                embed = discord.Embed(
+                    title="🔍 24/7 Espionage Monitoring Status",
+                    color=0x00ff00 if stats.get('is_running', False) else 0xff0000
+                )
+                
+                embed.add_field(name="Status", value="🟢 Running" if stats.get('is_running') else "🔴 Stopped", inline=True)
+                embed.add_field(name="Nations Monitored", value=stats.get('nations_count', 0), inline=True)
+                embed.add_field(name="Reset Times Found", value=stats.get('reset_times_found', 0), inline=True)
+                
+                await interaction.response.send_message(embed=embed)
+                
+            except Exception as e:
+                await interaction.response.send_message(f"❌ Error getting monitoring status: {str(e)}")
+        
+        @self.bot.tree.command(name='spy', description='Check spy activity for a nation')
+        @app_commands.describe(nation='Nation name to check (optional - checks your nation if not provided)')
+        async def slash_spy(interaction: discord.Interaction, nation: str = None):
+            """Check spy activity via slash command"""
+            if not self.pnw_api:
+                await interaction.response.send_message("❌ API not available - check environment variables")
+                return
+                
+            await interaction.response.defer()  # This might take a moment
+            
+            try:
+                if nation:
+                    # Search for the specified nation
+                    search_result = self.pnw_api.search_nations(name=nation)
+                    if 'errors' in search_result:
+                        await interaction.followup.send(f"❌ Error: {search_result['errors'][0]['message']}")
+                        return
+                    
+                    nations = search_result.get('data', {}).get('nations', {}).get('data', [])
+                    if not nations:
+                        await interaction.followup.send(f"❌ No nation found with name: {nation}")
+                        return
+                    
+                    nation_id = nations[0]['id']
+                    nation_name = nations[0]['nation_name']
+                else:
+                    # Get own nation
+                    me_result = self.pnw_api.get_nation()
+                    if 'errors' in me_result:
+                        await interaction.followup.send(f"❌ Error: {me_result['errors'][0]['message']}")
+                        return
+                    
+                    nation_data = me_result.get('data', {}).get('me', {}).get('nation', {})
+                    nation_id = nation_data.get('id')
+                    nation_name = nation_data.get('nation_name', 'Your Nation')
+                
+                # Get spy activity
+                spy_result = self.pnw_api.get_spy_activity(nation_id)
+                espionage_result = self.pnw_api.check_espionage_status(nation_id)
+                
+                embed = discord.Embed(
+                    title=f"🕵️ Spy Activity: {nation_name}",
+                    color=0x0099ff
+                )
+                
+                if 'data' in spy_result:
+                    embed.add_field(name="Spy Operations", value="Available", inline=True)
+                else:
+                    embed.add_field(name="Spy Operations", value="No recent activity", inline=True)
+                
+                if 'data' in espionage_result:
+                    embed.add_field(name="Espionage Status", value="Available", inline=True)
+                else:
+                    embed.add_field(name="Espionage Status", value="No data", inline=True)
+                
+                await interaction.followup.send(embed=embed)
+                
+            except Exception as e:
+                await interaction.followup.send(f"❌ An error occurred: {str(e)}")
     
     async def start(self):
         """Start the Discord bot"""
