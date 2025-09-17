@@ -5,6 +5,7 @@ Provides a web interface for bot control and monitoring
 
 from flask import Flask, render_template, request, jsonify
 import os
+import sqlite3
 import asyncio
 from threading import Thread
 from api.pnw_api import PoliticsAndWarAPI
@@ -216,6 +217,121 @@ class WebDashboard:
                 loop.close()
                 
                 return jsonify(result)
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        # Database viewing endpoints
+        @self.app.route('/api/database/nations')
+        def api_get_nations():
+            """Get all indexed nations"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                limit = request.args.get('limit', 50, type=int)
+                offset = request.args.get('offset', 0, type=int)
+                alliance_id = request.args.get('alliance_id', type=int)
+                
+                if alliance_id:
+                    nations = self.espionage_tracker.get_alliance_nations(alliance_id)
+                else:
+                    # Get all nations with pagination
+                    with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            SELECT id, nation_name, alliance_id, alliance_name, 
+                                   last_updated, is_active
+                            FROM nations 
+                            ORDER BY id DESC 
+                            LIMIT ? OFFSET ?
+                        ''', (limit, offset))
+                        
+                        columns = [description[0] for description in cursor.description]
+                        nations = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                return jsonify({
+                    "nations": nations,
+                    "count": len(nations),
+                    "limit": limit,
+                    "offset": offset
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/database/stats')
+        def api_get_database_stats():
+            """Get database statistics"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Total nations
+                    cursor.execute('SELECT COUNT(*) FROM nations')
+                    total_nations = cursor.fetchone()[0]
+                    
+                    # Active nations
+                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
+                    active_nations = cursor.fetchone()[0]
+                    
+                    # Nations by alliance
+                    cursor.execute('''
+                        SELECT alliance_id, alliance_name, COUNT(*) as count 
+                        FROM nations 
+                        WHERE alliance_id IS NOT NULL AND is_active = 1
+                        GROUP BY alliance_id, alliance_name 
+                        ORDER BY count DESC 
+                        LIMIT 10
+                    ''')
+                    top_alliances = [dict(zip(['alliance_id', 'alliance_name', 'count'], row)) 
+                                   for row in cursor.fetchall()]
+                    
+                    # Recent espionage checks
+                    cursor.execute('SELECT COUNT(*) FROM espionage_status WHERE checked_at > datetime("now", "-24 hours")')
+                    recent_checks = cursor.fetchone()[0]
+                    
+                    # Reset times found
+                    cursor.execute('SELECT COUNT(*) FROM reset_times')
+                    reset_times_found = cursor.fetchone()[0]
+                
+                return jsonify({
+                    "total_nations": total_nations,
+                    "active_nations": active_nations,
+                    "top_alliances": top_alliances,
+                    "recent_checks_24h": recent_checks,
+                    "reset_times_found": reset_times_found
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/database/recent-activity')
+        def api_get_recent_activity():
+            """Get recent database activity"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                limit = request.args.get('limit', 20, type=int)
+                
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Recent espionage checks
+                    cursor.execute('''
+                        SELECT es.nation_id, n.nation_name, n.alliance_name,
+                               es.espionage_available, es.checked_at
+                        FROM espionage_status es
+                        JOIN nations n ON es.nation_id = n.id
+                        ORDER BY es.checked_at DESC
+                        LIMIT ?
+                    ''', (limit,))
+                    
+                    columns = [description[0] for description in cursor.description]
+                    recent_activity = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                return jsonify({
+                    "recent_activity": recent_activity,
+                    "count": len(recent_activity)
+                })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
     
