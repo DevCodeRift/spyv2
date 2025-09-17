@@ -286,6 +286,8 @@
             </div>
             <button class="btn" onclick="loadNations()">🔍 Search</button>
             <button class="btn secondary" onclick="resetFilters()">🔄 Reset</button>
+            <button class="btn" onclick="populateMonitoringQueue()" style="background: #43b581;">🚀 Add to Queue</button>
+            <button class="btn" onclick="startMonitoring()" style="background: #faa61a;">▶️ Start Monitor</button>
         </div>
 
         <div class="stats" id="stats">
@@ -610,6 +612,64 @@
             currentPage = 1;
             loadNations();
         });
+
+        async function populateMonitoringQueue() {
+            try {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '🔄 Populating...';
+                btn.disabled = true;
+                
+                const response = await fetch('/api/monitor/populate-queue', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert(`Success! Added ${data.nations_added} nations to monitoring queue.`);
+                    // Refresh stats to show updated monitoring queue count
+                    loadStats();
+                }
+            } catch (error) {
+                console.error('Error populating monitoring queue:', error);
+                alert('Error populating monitoring queue: ' + error.message);
+            } finally {
+                const btn = event.target;
+                btn.textContent = '🚀 Add to Queue';
+                btn.disabled = false;
+            }
+        }
+
+        async function startMonitoring() {
+            try {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '🔄 Starting...';
+                btn.disabled = true;
+                
+                const response = await fetch('/api/monitor/start', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert('Monitoring system started! It will run in the background.');
+                    // Refresh stats
+                    loadStats();
+                }
+            } catch (error) {
+                console.error('Error starting monitoring:', error);
+                alert('Error starting monitoring: ' + error.message);
+            } finally {
+                const btn = event.target;
+                btn.textContent = '▶️ Start Monitor';
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
