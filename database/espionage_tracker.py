@@ -339,8 +339,8 @@ class EspionageTracker:
                     has_reset_time = cursor.fetchone()[0] > 0
                     
                     if not has_reset_time:
-                        # Add to monitoring queue
-                        next_check = datetime.utcnow() + timedelta(hours=1)  # Check in 1 hour
+                        # Add to monitoring queue  
+                        next_check = datetime.utcnow() + timedelta(hours=2)  # Check in 2 hours (turn change interval)
                         cursor.execute('''
                             INSERT OR REPLACE INTO monitoring_queue 
                             (nation_id, reason, next_check, added_at)
@@ -426,7 +426,7 @@ class EspionageTracker:
                 
                 # Update next check time if still monitoring
                 if not reset_detected:
-                    next_check = datetime.utcnow() + timedelta(hours=6)  # Check again in 6 hours
+                    next_check = datetime.utcnow() + timedelta(hours=2)  # Check again in 2 hours (turn change)
                     cursor.execute('''
                         UPDATE monitoring_queue 
                         SET next_check = ? 

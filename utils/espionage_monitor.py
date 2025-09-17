@@ -40,12 +40,12 @@ class EspionageMonitor:
         
         # Schedule regular tasks
         schedule.every(1).hours.do(self._schedule_new_nation_check)
-        schedule.every(6).hours.do(self._schedule_monitoring_cycle)
+        schedule.every(2).hours.do(self._schedule_monitoring_cycle)  # Every 2 hours for turn changes
         schedule.every(24).hours.do(self._schedule_cleanup)
         
         print("⏰ Scheduled tasks:")
         print("   • New nation check: Every 1 hour")
-        print("   • Monitoring cycle: Every 6 hours")
+        print("   • Monitoring cycle: Every 2 hours (turn changes)")
         print("   • Database cleanup: Every 24 hours")
         
         # Main 24/7 monitoring loop
