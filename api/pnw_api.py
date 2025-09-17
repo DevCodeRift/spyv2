@@ -35,9 +35,19 @@ class PoliticsAndWarAPI:
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()
-            return response.json()
+            
+            # Try to parse JSON
+            try:
+                result = response.json()
+                return result
+            except json.JSONDecodeError as e:
+                print(f"API returned invalid JSON: {e}")
+                print(f"Response content: {response.text[:500]}")
+                return {"errors": [{"message": f"Invalid JSON response: {e}"}]}
+                
         except requests.exceptions.RequestException as e:
             print(f"API request failed: {e}")
+            print(f"URL: {url[:100]}...")  # Don't log full URL with API key
             return {"errors": [{"message": str(e)}]}
     
     def get_nation(self, nation_id: int = None) -> Dict[str, Any]:

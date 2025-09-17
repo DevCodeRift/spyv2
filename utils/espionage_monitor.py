@@ -57,6 +57,26 @@ class EspionageMonitor:
         """Index all nations in the game, filtering for alliance members only"""
         print("🗂️ Indexing all nations in the game...")
         
+        # First, test if API is working with a simple query
+        print("🔍 Testing API connection...")
+        test_query = """
+        {
+          nations(first: 1) {
+            data {
+              id
+              nation_name
+            }
+          }
+        }
+        """
+        
+        test_result = self.api.query(test_query)
+        if test_result is None or 'errors' in test_result:
+            print(f"❌ API test failed: {test_result}")
+            return {'success': False, 'error': 'API connection test failed'}
+        
+        print("✅ API connection test passed")
+        
         try:
             page = 1
             total_nations = 0
@@ -93,11 +113,25 @@ class EspionageMonitor:
                 
                 result = self.api.query(query)
                 
+                # Better error handling for API response
+                if result is None:
+                    print(f"❌ API returned None on page {page} - possible rate limit or network issue")
+                    break
+                
                 if 'errors' in result:
                     print(f"❌ Error on page {page}: {result['errors']}")
                     break
                 
+                # Check if we have valid data structure
+                if 'data' not in result:
+                    print(f"❌ No 'data' key in result on page {page}: {result}")
+                    break
+                
                 nations_data = result.get('data', {}).get('nations', {})
+                if not nations_data:
+                    print(f"❌ No nations data on page {page}")
+                    break
+                
                 nations = nations_data.get('data', [])
                 
                 if not nations:

@@ -161,7 +161,7 @@ class WebDashboard:
             try:
                 # Start monitoring in background
                 import asyncio
-                asyncio.create_task(self.espionage_monitor.start_monitoring())
+                asyncio.create_task(self.espionage_monitor.start_24_7_monitoring())
                 return jsonify({"success": True, "message": "Monitoring started"})
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
