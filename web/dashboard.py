@@ -464,6 +464,16 @@ class WebDashboard:
                     
                     # Check if monitoring is running
                     cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS monitoring_status (
+                            id INTEGER PRIMARY KEY DEFAULT 1,
+                            is_running BOOLEAN DEFAULT 0,
+                            started_at TIMESTAMP,
+                            last_heartbeat TIMESTAMP,
+                            CHECK (id = 1)
+                        )
+                    ''')
+                    
+                    cursor.execute('''
                         SELECT is_running, started_at, last_heartbeat 
                         FROM monitoring_status 
                         WHERE id = 1
@@ -474,8 +484,8 @@ class WebDashboard:
                         is_running, started_at, last_heartbeat = status_row
                         # Check if heartbeat is recent (within 10 minutes)
                         cursor.execute('''
-                            SELECT datetime('now') < datetime(last_heartbeat, '+10 minutes')
-                        ''')
+                            SELECT datetime('now') < datetime(?, '+10 minutes')
+                        ''', (last_heartbeat,))
                         heartbeat_recent = cursor.fetchone()[0]
                         monitoring_active = bool(is_running and heartbeat_recent)
                     else:
