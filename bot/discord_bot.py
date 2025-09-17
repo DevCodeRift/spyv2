@@ -25,12 +25,30 @@ class DiscordBot:
         # Initialize bot
         self.bot = commands.Bot(command_prefix='!', intents=intents)
         
-        # Initialize API
-        self.pnw_api = PoliticsAndWarAPI(self.api_key)
+        # Initialize API (defensive initialization)
+        if self.api_key:
+            try:
+                self.pnw_api = PoliticsAndWarAPI(self.api_key)
+            except Exception as e:
+                print(f"⚠️ Warning: Could not initialize API: {e}")
+                self.pnw_api = None
+        else:
+            print("⚠️ Warning: PNW_API_KEY not set, API features disabled")
+            self.pnw_api = None
         
         # Initialize espionage monitoring system
-        self.espionage_monitor = EspionageMonitor(self.api_key)
-        self.espionage_tracker = EspionageTracker()
+        if self.pnw_api:
+            try:
+                self.espionage_monitor = EspionageMonitor(self.api_key)
+                self.espionage_tracker = EspionageTracker()
+            except Exception as e:
+                print(f"⚠️ Warning: Could not initialize monitoring system: {e}")
+                self.espionage_monitor = None
+                self.espionage_tracker = None
+        else:
+            print("⚠️ Warning: Monitoring system disabled (no API key)")
+            self.espionage_monitor = None
+            self.espionage_tracker = None
         
         # Start 24/7 monitoring in background
         self.monitoring_task = None

@@ -24,7 +24,22 @@ async def main():
     
     if missing_vars:
         print(f"❌ Missing required environment variables: {', '.join(missing_vars)}")
-        print("Please set them in a .env file or as environment variables")
+        print("\n🔧 Quick Fix:")
+        print("1. Copy .env.example to .env")
+        print("2. Edit .env and fill in your tokens:")
+        for var in missing_vars:
+            if var == 'DISCORD_TOKEN':
+                print("   - DISCORD_TOKEN: Get from https://discord.com/developers/applications")
+            elif var == 'PNW_API_KEY':
+                print("   - PNW_API_KEY: Get from Politics & War account settings")
+        print("3. Run: python check_env.py (to verify)")
+        print("4. Run: python main.py (to start the bot)")
+        print("\n📖 For detailed setup guide, see: ENVIRONMENT_SETUP.md")
+        
+        # Start health-only server for Railway deployment
+        print("\n🏥 Starting health-only server for deployment...")
+        from health_server import main as health_main
+        health_main()
         return
     
     print("✅ Environment variables configured")
