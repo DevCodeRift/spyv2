@@ -320,11 +320,11 @@ class WebDashboard:
                 with sqlite3.connect(self.espionage_tracker.db_path) as conn:
                     cursor = conn.cursor()
                     
-                    # Update monitoring queue to spread checks over the next hour
+                    # Update monitoring queue to spread checks over the next 2 hours
                     # This prevents overwhelming the API while starting monitoring
                     cursor.execute('''
                         UPDATE monitoring_queue 
-                        SET next_check = datetime('now', '+' || (ROWID % 60) || ' minutes'),
+                        SET next_check = datetime('now', '+' || (ROWID % 120) || ' minutes'),
                             priority = 5
                         WHERE next_check > datetime('now')
                     ''')
