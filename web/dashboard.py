@@ -447,44 +447,82 @@ class WebDashboard:
             if not self.espionage_tracker:
                 return jsonify({"error": "Database not initialized"}), 503
             try:
+                print(f"📍 Database path: {self.espionage_tracker.db_path}")
+                print(f"📍 Database exists: {os.path.exists(self.espionage_tracker.db_path)}")
+                
                 with sqlite3.connect(self.espionage_tracker.db_path) as conn:
                     cursor = conn.cursor()
                     
-                    # Count nations
-                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
-                    active_nations = cursor.fetchone()[0]
+                    # Check if tables exist
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    tables = [table[0] for table in cursor.fetchall()]
+                    print(f"📍 Tables found: {tables}")
                     
-                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1 AND alliance_id IS NOT NULL')
-                    alliance_nations = cursor.fetchone()[0]
+                    # Count nations
+                    if 'nations' in tables:
+                        cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
+                        active_nations = cursor.fetchone()[0]
+                        
+                        cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1 AND alliance_id IS NOT NULL')
+                        alliance_nations = cursor.fetchone()[0]
+                        
+                        cursor.execute('SELECT COUNT(*) FROM nations')
+                        total_nations = cursor.fetchone()[0]
+                        
+                        print(f"📍 Nations stats: total={total_nations}, active={active_nations}, alliance={alliance_nations}")
+                    else:
+                        active_nations = alliance_nations = total_nations = 0
+                        print("📍 Nations table not found!")
                     
                     # Count monitoring queue
-                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
-                    queue_count = cursor.fetchone()[0]
+                    if 'monitoring_queue' in tables:
+                        cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
+                        queue_count = cursor.fetchone()[0]
+                        print(f"📍 Monitoring queue count: {queue_count}")
+                    else:
+                        queue_count = 0
+                        print("📍 Monitoring queue table not found!")
                     
                     # Count reset times
-                    cursor.execute('SELECT COUNT(*) FROM reset_times')
-                    reset_times = cursor.fetchone()[0]
+                    if 'reset_times' in tables:
+                        cursor.execute('SELECT COUNT(*) FROM reset_times')
+                        reset_times = cursor.fetchone()[0]
+                        print(f"📍 Reset times count: {reset_times}")
+                    else:
+                        reset_times = 0
+                        print("📍 Reset times table not found!")
                     
                     # Sample monitoring queue
-                    cursor.execute('SELECT nation_id, reason, next_check FROM monitoring_queue LIMIT 5')
-                    queue_sample = cursor.fetchall()
+                    queue_sample = []
+                    if 'monitoring_queue' in tables and queue_count > 0:
+                        cursor.execute('SELECT nation_id, reason, next_check FROM monitoring_queue LIMIT 5')
+                        queue_sample = cursor.fetchall()
+                        print(f"📍 Queue sample: {queue_sample}")
                     
                     # Nations with immediate checks available
-                    cursor.execute('''
-                        SELECT COUNT(*) FROM monitoring_queue 
-                        WHERE next_check <= datetime('now')
-                    ''')
-                    ready_to_check = cursor.fetchone()[0]
+                    ready_to_check = 0
+                    if 'monitoring_queue' in tables:
+                        cursor.execute('''
+                            SELECT COUNT(*) FROM monitoring_queue 
+                            WHERE next_check <= datetime('now')
+                        ''')
+                        ready_to_check = cursor.fetchone()[0]
+                        print(f"📍 Ready to check: {ready_to_check}")
                 
                 return jsonify({
+                    "database_path": self.espionage_tracker.db_path,
+                    "database_exists": os.path.exists(self.espionage_tracker.db_path),
+                    "tables": tables,
                     "active_nations": active_nations,
                     "alliance_nations": alliance_nations,
+                    "total_nations": total_nations,
                     "monitoring_queue_count": queue_count,
                     "reset_times_found": reset_times,
                     "ready_to_check_now": ready_to_check,
                     "queue_sample": queue_sample
                 })
             except Exception as e:
+                print(f"❌ Database debug error: {e}")
                 return jsonify({"error": str(e)}), 500
         
         @self.app.route('/api/monitoring/overview')
@@ -521,29 +559,51 @@ class WebDashboard:
                         cursor.execute('''
                             SELECT datetime('now') < datetime(?, '+10 minutes')
                         ''', (last_heartbeat,))
-                        heartbeat_recent = cursor.fetchone()[0]
+                        heartbeat_recent = cursor.fetchone()[0] if cursor.fetchone() else False
                         monitoring_active = bool(is_running and heartbeat_recent)
                     else:
                         monitoring_active = False
                         started_at = None
                         last_heartbeat = None
                     
-                    # Get database stats
-                    cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
-                    total_nations = cursor.fetchone()[0]
+                    # Get database stats with better error handling
+                    try:
+                        cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
+                        total_nations = cursor.fetchone()[0]
+                    except Exception as e:
+                        print(f"Error counting nations: {e}")
+                        total_nations = 0
                     
-                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
-                    queue_count = cursor.fetchone()[0]
+                    try:
+                        cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
+                        queue_count = cursor.fetchone()[0]
+                    except Exception as e:
+                        print(f"Error counting monitoring queue: {e}")
+                        queue_count = 0
                     
-                    cursor.execute('SELECT COUNT(*) FROM reset_times')
-                    reset_times_found = cursor.fetchone()[0]
+                    try:
+                        cursor.execute('SELECT COUNT(*) FROM reset_times')
+                        reset_times_found = cursor.fetchone()[0]
+                    except Exception as e:
+                        print(f"Error counting reset times: {e}")
+                        reset_times_found = 0
                     
-                    cursor.execute('SELECT COUNT(*) FROM espionage_status WHERE checked_at > datetime("now", "-24 hours")')
-                    checks_24h = cursor.fetchone()[0]
+                    try:
+                        cursor.execute('SELECT COUNT(*) FROM espionage_status WHERE checked_at > datetime("now", "-24 hours")')
+                        checks_24h = cursor.fetchone()[0]
+                    except Exception as e:
+                        print(f"Error counting recent checks: {e}")
+                        checks_24h = 0
                     
                     # Nations ready to check
-                    cursor.execute('SELECT COUNT(*) FROM monitoring_queue WHERE next_check <= datetime("now")')
-                    ready_to_check = cursor.fetchone()[0]
+                    try:
+                        cursor.execute('SELECT COUNT(*) FROM monitoring_queue WHERE next_check <= datetime("now")')
+                        ready_to_check = cursor.fetchone()[0]
+                    except Exception as e:
+                        print(f"Error counting ready to check: {e}")
+                        ready_to_check = 0
+                    
+                    print(f"📊 Database stats: nations={total_nations}, queue={queue_count}, resets={reset_times_found}")
                     
                     # Recent activity
                     cursor.execute('''
