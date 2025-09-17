@@ -40,6 +40,137 @@ class WebDashboard:
         
         # Set up routes
         self.setup_routes()
+        
+        # Auto-initialize monitoring system on startup
+        self.auto_initialize_monitoring()
+    
+    def auto_initialize_monitoring(self):
+        """Auto-initialize monitoring system on startup"""
+        if not self.espionage_tracker or not self.espionage_monitor:
+            print("⚠️ Monitoring system not available, skipping auto-initialization")
+            return
+        
+        print("🚀 Auto-initializing monitoring system...")
+        
+        try:
+            # Check if monitoring queue needs population
+            with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Count current monitoring queue
+                cursor.execute('SELECT COUNT(*) FROM monitoring_queue')
+                queue_count = cursor.fetchone()[0]
+                
+                # Count nations without reset times
+                cursor.execute('''
+                    SELECT COUNT(*) FROM nations n
+                    WHERE n.is_active = 1 
+                    AND n.alliance_id IS NOT NULL
+                    AND n.id NOT IN (SELECT nation_id FROM reset_times)
+                ''')
+                nations_needing_monitoring = cursor.fetchone()[0]
+                
+                print(f"📊 Monitoring Queue: {queue_count} nations")
+                print(f"📊 Nations needing monitoring: {nations_needing_monitoring}")
+                
+                # Auto-populate queue if it's empty or very small
+                if queue_count < 100 and nations_needing_monitoring > 0:
+                    print("📝 Auto-populating monitoring queue...")
+                    
+                    # Find nations not in monitoring queue and without reset times
+                    cursor.execute('''
+                        SELECT n.id FROM nations n
+                        WHERE n.is_active = 1 
+                        AND n.alliance_id IS NOT NULL
+                        AND n.id NOT IN (SELECT nation_id FROM monitoring_queue)
+                        AND n.id NOT IN (SELECT nation_id FROM reset_times)
+                        LIMIT 1000
+                    ''')
+                    
+                    nations_to_add = cursor.fetchall()
+                    
+                    # Add them to monitoring queue
+                    added_count = 0
+                    for (nation_id,) in nations_to_add:
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO monitoring_queue 
+                            (nation_id, reason, next_check, added_at, priority)
+                            VALUES (?, ?, datetime('now', '+' || (? % 120) || ' minutes'), CURRENT_TIMESTAMP, 5)
+                        ''', (nation_id, "auto_init", added_count))
+                        added_count += 1
+                    
+                    conn.commit()
+                    print(f"✅ Added {added_count} nations to monitoring queue")
+                
+                # Start background monitoring
+                self.start_background_monitoring()
+                
+        except Exception as e:
+            print(f"⚠️ Error during auto-initialization: {e}")
+    
+    def start_background_monitoring(self):
+        """Start monitoring in background thread"""
+        if not self.espionage_monitor:
+            return
+        
+        # Check if monitoring is already running
+        if hasattr(self, '_monitoring_thread') and self._monitoring_thread and self._monitoring_thread.is_alive():
+            print("⚠️ Monitoring already running, skipping start")
+            return
+            
+        print("🔄 Starting background monitoring...")
+        
+        def monitoring_worker():
+            """Background monitoring worker"""
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Mark monitoring as active
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS monitoring_status (
+                            id INTEGER PRIMARY KEY DEFAULT 1,
+                            is_running BOOLEAN DEFAULT 0,
+                            started_at TIMESTAMP,
+                            last_heartbeat TIMESTAMP,
+                            CHECK (id = 1)
+                        )
+                    ''')
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO monitoring_status (id, is_running, started_at, last_heartbeat)
+                        VALUES (1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ''')
+                    conn.commit()
+                
+                # Start the monitoring loop
+                loop.run_until_complete(self.espionage_monitor.start_24_7_monitoring())
+                
+            except Exception as e:
+                print(f"❌ Monitoring worker error: {e}")
+                # Mark monitoring as stopped
+                try:
+                    with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE monitoring_status 
+                            SET is_running = 0, last_heartbeat = CURRENT_TIMESTAMP
+                            WHERE id = 1
+                        ''')
+                        conn.commit()
+                except:
+                    pass
+                
+                # Restart monitoring after 5 minutes on error
+                import time
+                time.sleep(300)
+                self.start_background_monitoring()
+        
+        # Start monitoring in background thread
+        self._monitoring_thread = Thread(target=monitoring_worker, daemon=True, name="MonitoringWorker")
+        self._monitoring_thread.start()
+        print("✅ Background monitoring started")
     
     def setup_routes(self):
         """Set up web routes"""
@@ -327,14 +458,32 @@ class WebDashboard:
             if not self.espionage_tracker or not self.espionage_monitor:
                 return jsonify({"error": "Monitoring system not initialized"}), 503
             try:
-                # Get monitoring status
-                monitor_stats = self.espionage_monitor.get_monitoring_stats()
-                
-                # Get database stats
+                # Get monitoring status from database
                 with sqlite3.connect(self.espionage_tracker.db_path) as conn:
                     cursor = conn.cursor()
                     
-                    # Basic counts
+                    # Check if monitoring is running
+                    cursor.execute('''
+                        SELECT is_running, started_at, last_heartbeat 
+                        FROM monitoring_status 
+                        WHERE id = 1
+                    ''')
+                    status_row = cursor.fetchone()
+                    
+                    if status_row:
+                        is_running, started_at, last_heartbeat = status_row
+                        # Check if heartbeat is recent (within 10 minutes)
+                        cursor.execute('''
+                            SELECT datetime('now') < datetime(last_heartbeat, '+10 minutes')
+                        ''')
+                        heartbeat_recent = cursor.fetchone()[0]
+                        monitoring_active = bool(is_running and heartbeat_recent)
+                    else:
+                        monitoring_active = False
+                        started_at = None
+                        last_heartbeat = None
+                    
+                    # Get database stats
                     cursor.execute('SELECT COUNT(*) FROM nations WHERE is_active = 1')
                     total_nations = cursor.fetchone()[0]
                     
@@ -374,7 +523,12 @@ class WebDashboard:
                                    for row in cursor.fetchall()]
                 
                 return jsonify({
-                    "monitoring_status": monitor_stats,
+                    "monitoring_status": {
+                        "active": monitoring_active,
+                        "is_running": monitoring_active,
+                        "started_at": started_at,
+                        "last_heartbeat": last_heartbeat
+                    },
                     "database_stats": {
                         "total_nations": total_nations,
                         "monitoring_queue_count": queue_count,
@@ -385,7 +539,7 @@ class WebDashboard:
                     "recent_activity": recent_activity,
                     "recent_reset_times": recent_resets,
                     # Add simplified fields for easier access
-                    "monitoring_active": monitor_stats.get("active", False) if monitor_stats else False,
+                    "monitoring_active": monitoring_active,
                     "nations_count": total_nations,
                     "ready_to_check": ready_to_check,
                     "reset_times_found": reset_times_found

@@ -25,6 +25,21 @@ class EspionageMonitor:
         self.last_full_scan = None
         self.monitoring_active = False
     
+    def update_heartbeat(self):
+        """Update monitoring heartbeat in database"""
+        try:
+            import sqlite3
+            with sqlite3.connect(self.tracker.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE monitoring_status 
+                    SET last_heartbeat = CURRENT_TIMESTAMP 
+                    WHERE id = 1
+                ''')
+                conn.commit()
+        except Exception as e:
+            print(f"⚠️ Failed to update heartbeat: {e}")
+    
     async def start_24_7_monitoring(self):
         """Start the 24/7 monitoring system with optimized workflow"""
         print("🚀 Starting 24/7 Espionage Monitoring System...")
@@ -198,6 +213,9 @@ class EspionageMonitor:
         
         print(f"🔍 [{datetime.utcnow()}] Running monitoring cycle...")
         
+        # Update heartbeat
+        self.update_heartbeat()
+        
         try:
             # Get nations that need monitoring
             nations_to_check = self.tracker.get_nations_needing_monitoring()
@@ -232,6 +250,10 @@ class EspionageMonitor:
                         self.tracker.stop_monitoring_nation(nation_id)
                 
                 checked_nations += 1
+                
+                # Update heartbeat every 10 nations
+                if checked_nations % 10 == 0:
+                    self.update_heartbeat()
                 
                 # Rate limiting
                 await asyncio.sleep(0.5)
