@@ -71,9 +71,10 @@ class EspionageMonitor:
         """
         
         test_result = self.api.query(test_query)
+        print(f"📊 Test API result: {test_result}")
         if test_result is None or 'errors' in test_result:
             print(f"❌ API test failed: {test_result}")
-            return {'success': False, 'error': 'API connection test failed'}
+            return {'success': False, 'error': f'API connection test failed: {test_result}'}
         
         print("✅ API connection test passed")
         
@@ -85,33 +86,28 @@ class EspionageMonitor:
             while True:
                 print(f"  � Processing page {page}...")
                 
-                # Get nations with alliance info
+                # Get nations with alliance info (simplified query)
                 query = f"""
                 {{
-                  nations(first: 500, page: {page}) {{
+                  nations(first: 100, page: {page}) {{
                     paginatorInfo {{
                       hasMorePages
                       currentPage
-                      total
                     }}
                     data {{
                       id
                       nation_name
                       alliance_id
-                      alliance {{
-                        id
-                        name
-                      }}
                       vacation_mode_turns
-                      beige_turns
-                      last_active
-                      espionage_available
                     }}
                   }}
                 }}
                 """
                 
+                print(f"📊 Executing query for page {page}...")
                 result = self.api.query(query)
+                print(f"📊 Raw result type: {type(result)}")
+                print(f"📊 Raw result: {str(result)[:200]}...")
                 
                 # Better error handling for API response
                 if result is None:
@@ -149,13 +145,13 @@ class EspionageMonitor:
                     if nation.get('vacation_mode_turns', 0) > 0:
                         continue
                     
-                    # Add to database
+                    # Add to database (simplified data)
                     self.tracker.add_or_update_nation(
                         nation_id=nation['id'],
                         nation_name=nation['nation_name'],
                         alliance_id=nation['alliance_id'],
-                        alliance_name=nation.get('alliance', {}).get('name', ''),
-                        last_active=nation.get('last_active', ''),
+                        alliance_name='',  # Not fetching alliance name for now
+                        last_active='',    # Not fetching last_active for now
                         should_monitor=True  # Start monitoring immediately
                     )
                     
