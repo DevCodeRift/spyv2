@@ -222,6 +222,49 @@ class WebDashboard:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
         
+        @self.app.route('/api/monitor/populate-queue', methods=['POST'])
+        def api_populate_monitoring_queue():
+            """Populate monitoring queue with nations that need checking"""
+            if not self.espionage_tracker:
+                return jsonify({"error": "Database not initialized"}), 503
+            try:
+                # Get all active nations without reset times
+                with sqlite3.connect(self.espionage_tracker.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # Find nations not in monitoring queue and without reset times
+                    cursor.execute('''
+                        SELECT n.id, n.nation_name 
+                        FROM nations n
+                        WHERE n.is_active = 1 
+                        AND n.alliance_id IS NOT NULL
+                        AND n.id NOT IN (SELECT nation_id FROM monitoring_queue)
+                        AND n.id NOT IN (SELECT nation_id FROM reset_times)
+                        LIMIT 1000
+                    ''')
+                    
+                    nations_to_add = cursor.fetchall()
+                    
+                    # Add them to monitoring queue for immediate checking
+                    added_count = 0
+                    for nation_id, nation_name in nations_to_add:
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO monitoring_queue 
+                            (nation_id, reason, next_check, added_at, priority)
+                            VALUES (?, ?, datetime('now'), CURRENT_TIMESTAMP, 5)
+                        ''', (nation_id, "immediate_check"))
+                        added_count += 1
+                    
+                    conn.commit()
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Added {added_count} nations to monitoring queue",
+                    "nations_added": added_count
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
         @self.app.route('/api/monitor/collect', methods=['POST'])
         def api_collect_nations():
             """Trigger nation collection"""
