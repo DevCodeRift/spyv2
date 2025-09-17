@@ -98,6 +98,14 @@
             background-color: #f04747;
             color: white;
         }
+        .status-online {
+            color: #43b581;
+            font-weight: bold;
+        }
+        .status-offline {
+            color: #f04747;
+            font-weight: bold;
+        }
         #results {
             background-color: #3c3c3c;
             padding: 15px;
@@ -176,6 +184,10 @@
                     <button class="btn" onclick="getRecentActivity()">Recent Activity</button>
                 </div>
                 <div id="monitoring-details" style="margin-top: 15px;"></div>
+                <div id="recent-activity" style="margin-top: 15px; border-top: 1px solid #555; padding-top: 15px;">
+                    <h4>Recent Activity</h4>
+                    <p>Loading...</p>
+                </div>
             </div>
 
             <div class="card">
